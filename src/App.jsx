@@ -2,6 +2,7 @@ import { Route, Routes } from "react-router-dom";
 import OverviewPage from "./pages/OverviewPage";
 import Sidebar from "./components/common/Sidebar";
 import ProductPage from "./pages/ProductPage";
+import UserPage from "./pages/UserPage";
 
 function App() {
   return (
@@ -16,6 +17,7 @@ function App() {
       <Routes>
         <Route path="/" element={<OverviewPage />} />
         <Route path="/products" element={<ProductPage />} />
+        <Route path="/users" element={<UserPage />} />
       </Routes>
     </div>
   );

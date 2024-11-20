@@ -4,6 +4,7 @@ import Sidebar from "./components/common/Sidebar";
 import ProductPage from "./pages/ProductPage";
 import UserPage from "./pages/UserPage";
 import SalesPage from "./pages/SalesPage";
+import OrdersPage from "./pages/OrdersPage";
 
 function App() {
   return (
@@ -20,6 +21,7 @@ function App() {
         <Route path="/products" element={<ProductPage />} />
         <Route path="/users" element={<UserPage />} />
         <Route path="/sales" element={<SalesPage />} />
+        <Route path="/orders" element={<OrdersPage />} />
       </Routes>
     </div>
   );

@@ -1,49 +1,47 @@
 import { motion } from "framer-motion";
 import { Edit, Search, Trash2 } from "lucide-react";
-import { useState } from "react";
-
-const PRODUCT_DATA = [
-  {
-    id: 2,
-    name: "Leather Wallet",
-    category: "Accessories",
-    price: 39.99,
-    stock: 89,
-    sales: 800,
-  },
-  {
-    id: 3,
-    name: "Smart Watch",
-    category: "Electronics",
-    price: 199.99,
-    stock: 56,
-    sales: 650,
-  },
-  {
-    id: 4,
-    name: "Yoga Mat",
-    category: "Fitness",
-    price: 29.99,
-    stock: 210,
-    sales: 950,
-  },
-];
+import { useEffect, useState } from "react";
+import { useQuery } from "react-query";
+import { fetchAllProducts } from "../../libs/fetcher.js";
 
 const ProductsTable = () => {
   const [searchTerm, setSearchTerm] = useState("");
-  const [filteredProducts, setFilteredProducts] = useState(PRODUCT_DATA);
+  const [filterProducts, setFilterProducts] = useState([]);
+  const { isLoading, isError, error, data } = useQuery(
+    "products",
+    fetchAllProducts
+  );
+
+  useEffect(() => {
+    if (data) {
+      const filtered = data.filter(
+        (product) =>
+          product.name.toLowerCase().includes(searchTerm.toLocaleLowerCase()) ||
+          product.category
+            .toLowerCase()
+            .includes(searchTerm.toLocaleLowerCase())
+      );
+      setFilterProducts(filtered);
+    }
+  }, [data, searchTerm]);
 
   const handleSearch = (e) => {
     const term = e.target.value.toLowerCase();
     setSearchTerm(term);
-    const filtered = PRODUCT_DATA.filter(
-      (product) =>
-        product.name.toLowerCase().includes(term) ||
-        product.category.toLowerCase().includes(term)
-    );
-
-    setFilteredProducts(filtered);
   };
+
+  if (isLoading)
+    return (
+      <div className="mb-5 text-left text-xs font-medium text-gray-400 uppercase tracking-wider">
+        Loading...
+      </div>
+    );
+  if (isError)
+    return (
+      <div className="mb-5 text-left text-xs font-medium text-gray-400 uppercase tracking-wider">
+        Error: {error.message}
+      </div>
+    );
 
   return (
     <motion.div
@@ -92,7 +90,7 @@ const ProductsTable = () => {
           </thead>
 
           <tbody className="divide-y divide-gray-700">
-            {filteredProducts.map((product) => (
+            {filterProducts.map((product) => (
               <motion.tr
                 key={product.id}
                 initial={{ opacity: 0 }}
@@ -100,11 +98,6 @@ const ProductsTable = () => {
                 transition={{ duration: 0.3 }}
               >
                 <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-100 flex gap-2 items-center">
-                  <img
-                    src="https://images.unsplash.com/photo-1627989580309-bfaf3e58af6f?w=500&auto=format&fit=crop&q=60&ixlib=rb-4.0.3&ixid=M3wxMjA3fDB8MHxzZWFyY2h8Nnx8d2lyZWxlc3MlMjBlYXJidWRzfGVufDB8fDB8fHww"
-                    alt="Product img"
-                    className="size-10 rounded-full"
-                  />
                   {product.name}
                 </td>
 
@@ -113,7 +106,7 @@ const ProductsTable = () => {
                 </td>
 
                 <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-300">
-                  ${product.price.toFixed(2)}
+                  ${product.price}
                 </td>
                 <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-300">
                   {product.stock}

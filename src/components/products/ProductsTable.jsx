@@ -1,15 +1,60 @@
 import { motion } from "framer-motion";
-import { Edit, Search, Trash2 } from "lucide-react";
+import { Edit, Plus, Search, Trash2 } from "lucide-react";
 import { useEffect, useState } from "react";
-import { useQuery } from "react-query";
-import { fetchAllProducts } from "../../libs/fetcher.js";
+import { QueryClient, useMutation, useQuery } from "react-query";
+import {
+  deleteProduct,
+  editProducts,
+  fetchAllProducts,
+  postProducts,
+} from "../../libs/fetcher.js";
 
 const ProductsTable = () => {
+  const queryClient = new QueryClient();
   const [searchTerm, setSearchTerm] = useState("");
   const [filterProducts, setFilterProducts] = useState([]);
+  const [showModel, setShowModel] = useState(false);
+  const [showEditModel, setShowEditModel] = useState(null);
   const { isLoading, isError, error, data } = useQuery(
     "products",
     fetchAllProducts
+  );
+
+  const { mutate: createMutation } = useMutation(postProducts, {
+    onMutate: async (updatedData) => {
+      await queryClient.cancelQueries("products");
+      await queryClient.setQueryData(["products"], (oldData = []) => {
+        oldData.map((product) =>
+          product.id === updatedData.id
+            ? { ...product, ...updatedData }
+            : product
+        );
+      });
+      setShowModel(false);
+    },
+  });
+
+  const { mutate: editMutation } = useMutation(editProducts, {
+    onMutate: async (newProduct) => {
+      await queryClient.cancelQueries("products");
+      await queryClient.setQueryData(["products"], (oldData = []) => [
+        newProduct,
+        ...oldData,
+      ]);
+      setShowModel(false);
+    },
+  });
+
+  const { mutate: deleteMutation } = useMutation(
+    async (id) => deleteProduct(id),
+    {
+      onMutate: async (id) => {
+        await queryClient.cancelQueries("products");
+        await queryClient.setQueryData(["products"], (oldData = []) =>
+          oldData.filter((old) => old.id !== id)
+        );
+      },
+    }
   );
 
   useEffect(() => {
@@ -28,6 +73,44 @@ const ProductsTable = () => {
   const handleSearch = (e) => {
     const term = e.target.value.toLowerCase();
     setSearchTerm(term);
+  };
+
+  const handleOnCreate = () => {
+    setShowModel(true);
+    setShowEditModel(null);
+  };
+
+  const handleEditProduct = (product) => {
+    setShowEditModel(product);
+    setShowModel(true);
+  };
+
+  const handleOnDelete = (id) => {
+    deleteMutation(id);
+  };
+
+  const handleOnSubmit = (e) => {
+    e.preventDefault();
+
+    const formData = new FormData(e.target);
+    const productData = {
+      name: formData.get("name"),
+      category: formData.get("category"),
+      price: parseFloat(formData.get("price")),
+      stock: parseInt(formData.get("stock")),
+      sales: parseInt(formData.get("sales")),
+    };
+
+    if (showEditModel) {
+      const productId = showEditModel.id;
+      editMutation({ id: productId, productData });
+    } else {
+      createMutation(productData);
+    }
+  };
+
+  const handleCloseModal = () => {
+    setShowModel(false);
   };
 
   if (isLoading)
@@ -50,7 +133,7 @@ const ProductsTable = () => {
       animate={{ opacity: 1, y: 0 }}
       transition={{ delay: 0.2 }}
     >
-      <div className="flex justify-between items-center mb-6">
+      <div className="flex flex-col sm:flex-row justify-between items-center mb-6 gap-3">
         <h2 className="text-xl font-semibold text-gray-100">Product List</h2>
         <div className="relative">
           <input
@@ -62,6 +145,12 @@ const ProductsTable = () => {
           />
           <Search className="absolute left-3 top-2.5 text-gray-400" size={18} />
         </div>
+        <button
+          className="bg-gray-700 text-white rounded-full p-2 focus:outline-none active:bg-gray-800 transition-colors duration-800 ease-in-out"
+          onClick={handleOnCreate}
+        >
+          <Plus size={18} />
+        </button>
       </div>
 
       <div className="overflow-x-auto">
@@ -115,11 +204,17 @@ const ProductsTable = () => {
                   {product.sales}
                 </td>
                 <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-300">
-                  <button className="text-indigo-400 hover:text-indigo-300 mr-2">
+                  <button
+                    className="text-indigo-400 hover:text-indigo-300 mr-2"
+                    onClick={() => handleEditProduct(product)}
+                  >
                     <Edit size={18} />
                   </button>
                   <button className="text-red-400 hover:text-red-300">
-                    <Trash2 size={18} />
+                    <Trash2
+                      size={18}
+                      onClick={() => handleOnDelete(product.id)}
+                    />
                   </button>
                 </td>
               </motion.tr>
@@ -127,6 +222,102 @@ const ProductsTable = () => {
           </tbody>
         </table>
       </div>
+      {showModel && (
+        <div className="absolute top-16 inset-0 -translate-y-1/2 z-50 bg-gray-800 bg-opacity-0 flex items-center justify-center">
+          <div className="bg-gray-700 rounded-lg p-6 w-[550px]">
+            <h2 className="text-xl text-center font-semibold text-gray-100">
+              {showEditModel ? "Edit Product" : "Create Product"}
+            </h2>
+            <form className="gap-2" onSubmit={handleOnSubmit}>
+              <div>
+                <label htmlFor="name" className="text-gray-400">
+                  Product Name
+                </label>
+                <input
+                  type="text"
+                  id="name"
+                  name="name"
+                  defaultValue={showEditModel?.name || ""}
+                  className="w-full bg-gray-600 text-white px-4 py-2 rounded-lg"
+                  required
+                />
+              </div>
+
+              <div>
+                <label htmlFor="category" className="text-gray-400">
+                  Category
+                </label>
+                <input
+                  type="text"
+                  id="category"
+                  name="category"
+                  defaultValue={showEditModel?.category || ""}
+                  className="w-full bg-gray-600 text-white px-4 py-2 rounded-lg"
+                  required
+                />
+              </div>
+
+              <div>
+                <label htmlFor="price" className="text-gray-400">
+                  Price
+                </label>
+                <input
+                  type="number"
+                  id="price"
+                  name="price"
+                  defaultValue={showEditModel?.price || 0.0}
+                  className="w-full bg-gray-600 text-white px-4 py-2 rounded-lg"
+                  required
+                />
+              </div>
+
+              <div>
+                <label htmlFor="stock" className="text-gray-400">
+                  Stock
+                </label>
+                <input
+                  type="number"
+                  id="stock"
+                  name="stock"
+                  defaultValue={showEditModel?.stock || 0}
+                  className="w-full bg-gray-600 text-white px-4 py-2 rounded-lg"
+                  required
+                />
+              </div>
+
+              <div>
+                <label htmlFor="sales" className="text-gray-400">
+                  Sales
+                </label>
+                <input
+                  type="number"
+                  id="sales"
+                  name="sales"
+                  defaultValue={showEditModel?.sales || 0}
+                  className="w-full bg-gray-600 text-white px-4 py-2 rounded-lg"
+                  required
+                />
+              </div>
+
+              <div className="flex justify-end mt-1 gap-2">
+                <button
+                  type="button"
+                  onClick={handleCloseModal}
+                  className="bg-gray-500 text-white px-4 py-2 rounded-lg"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  className="bg-blue-500 text-white px-6 py-2 rounded-lg"
+                >
+                  {showEditModel ? "Update Product" : "Create Product"}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
     </motion.div>
   );
 };

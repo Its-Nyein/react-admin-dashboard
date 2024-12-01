@@ -1,46 +1,52 @@
 import { motion } from "framer-motion";
 import { Edit, Plus, Search, Trash2 } from "lucide-react";
 import { useEffect, useState } from "react";
-import { QueryClient, useMutation, useQuery } from "react-query";
+import { useMutation, useQuery } from "react-query";
 import {
   deleteProduct,
   editProducts,
   fetchAllProducts,
   postProducts,
 } from "../../libs/fetcher.js";
+import { queryClient } from "../../App.jsx";
 
 const ProductsTable = () => {
-  const queryClient = new QueryClient();
   const [searchTerm, setSearchTerm] = useState("");
   const [filterProducts, setFilterProducts] = useState([]);
   const [showModel, setShowModel] = useState(false);
   const [showEditModel, setShowEditModel] = useState(null);
-  const { isLoading, isError, error, data } = useQuery(
-    "products",
-    fetchAllProducts
-  );
+  const { isLoading, isError, error, data } = useQuery({
+    queryKey: ["products"],
+    queryFn: fetchAllProducts,
+  });
 
   const { mutate: createMutation } = useMutation(postProducts, {
     onMutate: async (updatedData) => {
-      await queryClient.cancelQueries("products");
-      await queryClient.setQueryData(["products"], (oldData = []) => {
+      queryClient.cancelQueries({ queryKey: ["products"] });
+      queryClient.setQueryData({ queryKey: ["products"] }, (oldData = []) => {
         oldData.map((product) =>
           product.id === updatedData.id
             ? { ...product, ...updatedData }
             : product
         );
       });
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["products"] });
       setShowModel(false);
     },
   });
 
   const { mutate: editMutation } = useMutation(editProducts, {
     onMutate: async (newProduct) => {
-      await queryClient.cancelQueries("products");
-      await queryClient.setQueryData(["products"], (oldData = []) => [
-        newProduct,
-        ...oldData,
-      ]);
+      queryClient.cancelQueries({ queryKey: ["products"] });
+      queryClient.setQueryData({ queryKey: ["products"] }, (oldData = []) => {
+        [newProduct, ...oldData];
+        return oldData;
+      });
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["products"] });
       setShowModel(false);
     },
   });
@@ -49,10 +55,14 @@ const ProductsTable = () => {
     async (id) => deleteProduct(id),
     {
       onMutate: async (id) => {
-        await queryClient.cancelQueries("products");
-        await queryClient.setQueryData(["products"], (oldData = []) =>
-          oldData.filter((old) => old.id !== id)
+        await queryClient.cancelQueries({ queryKey: ["products"] });
+        await queryClient.setQueryData(
+          { queryKey: ["products"] },
+          (oldData = []) => oldData.filter((old) => old.id !== id)
         );
+      },
+      onSuccess: () => {
+        queryClient.invalidateQueries({ queryKey: ["products"] });
       },
     }
   );
@@ -61,8 +71,10 @@ const ProductsTable = () => {
     if (data) {
       const filtered = data.filter(
         (product) =>
-          product.name.toLowerCase().includes(searchTerm.toLocaleLowerCase()) ||
-          product.category
+          product?.name
+            .toLowerCase()
+            .includes(searchTerm.toLocaleLowerCase()) ||
+          product?.category
             .toLowerCase()
             .includes(searchTerm.toLocaleLowerCase())
       );
